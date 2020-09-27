@@ -12,12 +12,13 @@ TOOLCHAIN = $(TOP)/xtensa-lx106-elf
 # for supported versions.
 VENDOR_SDK = 3.0.4
 
-.PHONY: crosstool-NG toolchain libhal libcirom sdk
+.PHONY: crosstool-NG toolchain libhal libcirom sdk make_tmpbin
 
 
 
 TOP = $(PWD)
 SHELL = /bin/bash
+TMPBIN = /tmp/tmpbin
 PATCH = patch -b -N
 UNZIP = unzip -q -o
 VENDOR_SDK_ZIP = $(VENDOR_SDK_ZIP_$(VENDOR_SDK))
@@ -133,12 +134,27 @@ crosstool-NG/.built: crosstool-NG/ct-ng
 	$(MAKE) -C crosstool-NG -f ../Makefile _toolchain
 	touch $@
 
-_toolchain:
+make_tmpbin:
+	mkdir -p "$(TMPBIN)"
+ifneq ("$(wildcard $(TMPBIN)/python)","")
+	rm "$(TMPBIN)/python"
+endif
+ifneq ("$(wildcard /usr/bin/python2)","")
+	ln -s /usr/bin/python2 /tmp/tmpbin/python
+else ifneq ("$(wildcard /usr/bin/python2.7)","")
+	ln -s /usr/bin/python2.7 /tmp/tmpbin/python
+else
+	ln -s /usr/bin/python /tmp/tmpbin/python
+endif
+
+_toolchain: make_tmpbin
 	./ct-ng xtensa-lx106-elf
 	sed -r -i.org s%CT_PREFIX_DIR=.*%CT_PREFIX_DIR="$(TOOLCHAIN)"% .config
 	sed -r -i s%CT_INSTALL_DIR_RO=y%"#"CT_INSTALL_DIR_RO=y% .config
 	cat ../crosstool-config-overrides >> .config
-	./ct-ng build
+	@export PATH=/tmp/tmpbin:${PATH} && \
+		echo "./ct-ng build" && \
+		./ct-ng build
 
 
 crosstool-NG: crosstool-NG/ct-ng
